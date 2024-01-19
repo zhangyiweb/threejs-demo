@@ -1,0 +1,242 @@
+<!--
+ * @Descripttion: 
+ * @Date: 2022-07-19 14:44:28
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+</style>
+
+<body>
+  <div id="container"></div>
+</body>
+<script type="importmap">
+  {
+    "imports": {
+      "three": "./build/three.module.js"
+    }
+  }
+</script>
+<script type="module">
+
+  import * as THREE from 'three';
+
+  import Stats from './jsm/libs/stats.module.js';
+  import { GUI } from './jsm/libs/lil-gui.module.min.js';
+  import { GLTFLoader } from './jsm/loaders/GLTFLoader.js';
+  import { DRACOLoader } from './jsm/loaders/DRACOLoader.js';
+  import { OrbitControls } from './jsm/controls/OrbitControls.js';
+  import { OBJLoader } from './jsm/loaders/OBJLoader.js';
+  import { MTLLoader } from './jsm/loaders/MTLLoader.js';
+  import { zuobiao } from "./js/lag.js"
+  import { CSS2DRenderer, CSS2DObject } from "./jsm/renderers/CSS2DRenderer.js";
+
+  let camera, scene, renderer, mixer, clock, controls, labelRenderer;
+  const mixers = [];
+  let stats;
+  //纹理贴图路径
+  var textPath = './assets/textures/'
+  //改变天空盒子纹理——晴天
+  var boxBg1 = ['posx.jpg', 'negx.jpg', 'posy.jpg', 'negy.jpg', 'posz.jpg', 'negz.jpg']
+  var boxBg2 = ['posx_gray.jpg', 'negx_gray.jpg', 'posy_gray.jpg', 'negy_gray.jpg', 'posz_gray.jpg', 'negz_gray.jpg']
+  init();
+  animate();
+
+  function init() {
+    clock = new THREE.Clock();
+    const container = document.getElementById('container');
+
+    camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 1, 5000);
+    camera.position.set(0, 100, 500);
+
+    scene = new THREE.Scene();
+    scene.background = new THREE.CubeTextureLoader().setPath(textPath).load(boxBg2)
+
+
+    //地面
+    const texture = new THREE.TextureLoader().load("assets/textures/floor3.png");
+    const geometry = new THREE.PlaneGeometry(270, 260);
+    const material = new THREE.MeshBasicMaterial({
+      side: THREE.DoubleSide,
+      transparent: true,
+      map: texture
+    });
+    const plane = new THREE.Mesh(geometry, material);
+    plane.rotation.x = -0.5 * Math.PI;
+    plane.position.y = -0.1;
+    scene.add(plane);
+
+
+    //围栏
+    const texture1 = new THREE.TextureLoader().load("./assets/textures/lan2.png");
+    texture1.wrapS = THREE.RepeatWrapping;
+    texture1.wrapT = THREE.RepeatWrapping;
+    texture1.repeat.set(40, 1);
+    //门
+    const texture2 = new THREE.TextureLoader().load("./assets/textures/door.png");
+    const loader = new OBJLoader();
+    loader.load(
+      './assets/obj/wall.obj',
+      function (object) {
+        object.children[0].material = new THREE.MeshBasicMaterial({
+          side: THREE.DoubleSide,
+          map: texture1,
+          transparent: true
+        })
+        object.children[1].material = new THREE.MeshBasicMaterial({
+          side: THREE.DoubleSide,
+          map: texture2,
+          transparent: true
+        })
+        scene.add(object);
+      },
+    );
+    //公路
+    const texture3 = new THREE.TextureLoader().load("assets/textures/road2.png");
+    const geometry3 = new THREE.PlaneGeometry(24, 260);
+    const material3 = new THREE.MeshBasicMaterial({
+      side: THREE.DoubleSide,
+      transparent: true,
+      map: texture3
+    });
+    const plane3 = new THREE.Mesh(geometry3, material3);
+    plane3.rotateX(-Math.PI / 2);
+    plane3.rotateZ(Math.PI / 2);
+    plane3.position.z = 130 + 12
+    scene.add(plane3);
+    //厂房
+    const texture4 = new THREE.TextureLoader().load("./assets/textures/factory_building.png");
+    loader.load(
+      './assets/obj/factory_building.obj',
+      function (object) {
+        object.children[0].material = new THREE.MeshBasicMaterial({
+          map: texture4
+        })
+        object.children[0].scale.set(1.3, 1.4, 1.6);
+        for (let i = 0; i < 2; i++) {
+          for (let j = 0; j < 3; j++) {
+            const obj1 = object.children[0].clone()
+            obj1.position.set(i * 50 + 12, 0, j * 80 - 80);
+            scene.add(obj1);
+          }
+        }
+
+      },
+    );
+    //粮仓
+    const texture5 = new THREE.TextureLoader().load("./assets/textures/round_short.png");
+    var objLoader = new OBJLoader()
+    objLoader.load('./assets/obj/round_short.obj', (obj) => {
+      console.log(obj.children[0]);
+      obj.rotateZ(Math.PI);
+      obj.children[0].material = new THREE.MeshBasicMaterial({
+        map: texture5
+      })
+      for (let i = 0; i < 2; i++) {
+        for (let j = 0; j < 6; j++) {
+          const obj1 = obj.clone()
+          obj1.position.set(-3 * i * 11 - 35, 20, j * 25 - 20);
+          scene.add(obj1);
+        }
+      }
+    })
+
+    const texture6 = new THREE.TextureLoader().load("./assets/textures/round_tall.png");
+    var objLoader = new OBJLoader()
+    objLoader.load('./assets/obj/round_tall.obj', (obj) => {
+      obj.rotateZ(Math.PI);
+      obj.children[0].material = new THREE.MeshBasicMaterial({
+        map: texture6
+      })
+      for (let i = 0; i < 2; i++) {
+        for (let j = 0; j < 3; j++) {
+          const obj1 = obj.clone()
+          obj1.position.set(-3 * i * 11 - 35, 37, j * 25 - 110);
+          scene.add(obj1);
+        }
+      }
+    })
+
+
+    var axes = new THREE.AxesHelper(300);
+    scene.add(axes);
+
+    const arr = [
+      [100, 100, 100],
+      [-100, 100, 100],
+      [100, -100, 100],
+      [0, 100, -100]
+    ]
+    arr.forEach(lightArr => {
+      let spotLight = new THREE.DirectionalLight(0xffffff, 3)
+      let [x, y, z] = lightArr
+      spotLight.position.set(x, y, z);
+      scene.add(spotLight);
+    })
+
+    const earthDiv = document.createElement('div');
+    earthDiv.className = 'label';
+    earthDiv.textContent = 'Earth';
+    earthDiv.style.marginTop = '-1em';
+    const earthLabel = new CSS2DObject(earthDiv);
+    earthLabel.position.set(0, 10, 0);
+    earthLabel.layers.set(0);
+
+    // RENDERER
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setClearColor(0x030B1A)
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    container.appendChild(renderer.domElement);
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.shadowMap.enabled = true;
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.dampingFactor = true
+    controls.maxDistance = 1000
+    controls.minDistance = 300
+    stats = new Stats();
+    container.appendChild(stats.dom);
+
+    // var axes = new THREE.AxesHelper(20);
+    // scene.add(axes);
+  }
+
+  function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  function animate() {
+    controls.update()
+    requestAnimationFrame(animate);
+    render();
+    stats.update();
+  }
+
+  function render() {
+    const delta = clock.getDelta();
+    renderer.render(scene, camera);
+  }
+
+  window.addEventListener('resize', onWindowResize);
+
+
+
+</script>
+
+</html>

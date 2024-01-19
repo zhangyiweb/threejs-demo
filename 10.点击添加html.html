@@ -1,0 +1,159 @@
+<!--
+ * @Descripttion: 
+ * @Date: 2022-07-19 14:44:28
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  .label {
+    color: #FFF;
+    font-family: sans-serif;
+    padding: 2px;
+    font-size: 24px;
+  }
+</style>
+
+<body>
+  <div id="container"></div>
+
+  <div id="box" style="width: 200px;height: 200px;background-color: red;">111111111</div>
+</body>
+<script type="importmap">
+  {
+    "imports": {
+      "three": "./build/three.module.js"
+    }
+  }
+</script>
+<script type="module">
+
+  import * as THREE from 'three';
+
+  import Stats from './jsm/libs/stats.module.js';
+  import { GUI } from './jsm/libs/lil-gui.module.min.js';
+  import { GLTFLoader } from './jsm/loaders/GLTFLoader.js';
+  import { DRACOLoader } from './jsm/loaders/DRACOLoader.js';
+  import { OrbitControls } from './jsm/controls/OrbitControls.js';
+  import { OBJLoader } from './jsm/loaders/OBJLoader.js';
+  import { MTLLoader } from './jsm/loaders/MTLLoader.js';
+  import { zuobiao } from "./js/lag.js"
+  import { CSS2DRenderer, CSS2DObject } from "./jsm/renderers/CSS2DRenderer.js";
+
+
+  let camera, scene, renderer, clock, controls, labelRenderer
+  let stats;
+  let labelCSS2D;
+
+  init();
+  animate();
+
+  function init() {
+    clock = new THREE.Clock();
+    const container = document.getElementById('container');
+
+    camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 1, 5000);
+    camera.position.set(0, 10, 50);
+
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color("#87CEFA")
+
+    const geometry = new THREE.BoxGeometry(1, 1, 1);
+    const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+    const cube = new THREE.Mesh(geometry, material);
+    scene.add(cube);
+
+    // const earthDiv = document.createElement('div');
+    // earthDiv.className = 'label';
+    // // earthDiv.innerHTML = 'Earth';
+    // earthDiv.style.marginTop = '0px';
+    // const earthLabel = new CSS2DObject(earthDiv);
+    // earthLabel.position.set(0, 1, 0);
+    // scene.add(earthLabel)
+
+    labelRenderer = new CSS2DRenderer();
+    labelRenderer.setSize(window.innerWidth, window.innerHeight);
+    labelRenderer.domElement.style.position = 'absolute';
+    labelRenderer.domElement.style.top = '0px';
+    document.body.appendChild(labelRenderer.domElement);
+    labelCSS2D = new CSS2DObject(document.getElementById('box'));
+    scene.add(labelCSS2D);
+    labelCSS2D.visible = false
+
+
+    window.addEventListener('click', onMouseClick, false);
+
+    var raycaster = new THREE.Raycaster()
+    var mouse = new THREE.Vector2()
+
+    function onMouseClick(event) {
+      var vector = new THREE.Vector3((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) *
+        2 + 1, 0.5);
+      vector = vector.unproject(camera);
+      var raycaster = new THREE.Raycaster(camera.position, vector.sub(camera.position).normalize());
+      var intersects = raycaster.intersectObjects(scene.children);
+
+      if (intersects.length) {
+        console.log(intersects);
+        const point = intersects[0].point;
+        labelCSS2D.position.set(point.x - 0.01, point.y + 0.01, point.z - 0.03);
+        labelCSS2D.visible = true
+      } else {
+        labelCSS2D.visible = false
+      }
+    }
+    // RENDERER
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setClearColor(0x030B1A)
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    container.appendChild(renderer.domElement);
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.shadowMap.enabled = true;
+
+
+    controls = new OrbitControls(camera, labelRenderer.domElement);
+    controls.dampingFactor = true
+    stats = new Stats();
+    container.appendChild(stats.dom);
+
+    var axes = new THREE.AxesHelper(20);
+    scene.add(axes);
+  }
+
+  function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  function animate() {
+    controls.update()
+    requestAnimationFrame(animate);
+    render();
+    stats.update();
+  }
+
+  function render() {
+    labelRenderer.render(scene, camera);
+    renderer.render(scene, camera);
+  }
+
+  window.addEventListener('resize', onWindowResize);
+</script>
+
+</html>

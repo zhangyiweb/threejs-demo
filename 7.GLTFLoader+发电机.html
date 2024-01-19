@@ -1,0 +1,228 @@
+<!--
+ * @Descripttion: 
+ * @Date: 2022-07-19 14:44:28
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+</style>
+
+<body>
+  <div id="container"></div>
+  <ul id='equipmentLabelRef' style="border: 1px solid #fff;color:#fff">
+    <li></li>
+    <li class='labelInfo'>
+      <div>
+        <header>
+          <div id="cn">{labelData.cn}</div>
+          <span id="en">{labelData.en}</span>
+        </header>
+        <ul id="valueUl">
+        </ul>
+      </div>
+    </li>
+  </ul>
+</body>
+<script type="importmap">
+  {
+    "imports": {
+      "three": "./build/three.module.js"
+    }
+  }
+</script>
+<script type="module">
+
+  import * as THREE from 'three';
+
+  import Stats from './jsm/libs/stats.module.js';
+  import { GUI } from './jsm/libs/lil-gui.module.min.js';
+  import { GLTFLoader } from './jsm/loaders/GLTFLoader.js';
+  import { DRACOLoader } from './jsm/loaders/DRACOLoader.js';
+  import { OrbitControls } from './jsm/controls/OrbitControls.js';
+  import { OBJLoader } from './jsm/loaders/OBJLoader.js';
+  import { MTLLoader } from './jsm/loaders/MTLLoader.js';
+  import { zuobiao } from "./js/lag.js"
+  import { CSS2DRenderer, CSS2DObject } from "./jsm/renderers/CSS2DRenderer.js";
+
+  let camera, scene, renderer, mixer, clock, controls, labelRenderer;
+  const mixers = [];
+  let stats;
+
+  init();
+  animate();
+
+  function init() {
+    clock = new THREE.Clock();
+    const container = document.getElementById('container');
+
+    camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 1, 5000);
+    camera.position.set(0, 10, 50);
+
+    scene = new THREE.Scene();
+    // scene.background = new THREE.Color("#87CEFA")
+
+    const arr = [
+      [100, 100, 100],
+      [-100, 100, 100],
+      [100, -100, 100],
+      [0, 100, -100]
+    ]
+    arr.forEach(lightArr => {
+      let spotLight = new THREE.DirectionalLight(0xffffff, 3)
+      let [x, y, z] = lightArr
+      spotLight.position.set(x, y, z);
+      scene.add(spotLight);
+    })
+
+
+    const loader = new GLTFLoader();
+    if (scene.getObjectByName('turbine')) {
+      let removeTurbine = scene.getObjectByName('turbine')
+      scene.remove(removeTurbine)
+    }
+    loader.load('models/models-3/turbine.glb', (obj) => {
+      console.log('obj',obj)
+      const mesh = obj.scene
+      mesh.position.set(0, -10, 0)
+      mesh.scale.set(0.002, 0.002, 0.002)
+      let metal = mesh.getObjectByName('颜色材质')
+      metal.visible = false
+      scene.add(obj.scene)
+      mixer = new THREE.AnimationMixer(mesh);
+      var AnimationAction = mixer.clipAction(obj.animations[0]);
+      AnimationAction.play();
+    })
+
+
+    loader.load('models/models-3/plane.glb', (obj) => {
+      const mesh = obj.scene
+      mesh.position.set(0, -10, 0)
+      console.log(mesh);
+      mesh.traverse((child) => {
+        if (child.isMesh) {
+          child.material.side = THREE.DoubleSide
+        }
+      })
+      mesh.scale.set(0.002, 0.002, 0.002)
+      scene.add(mesh)
+    })
+
+    loader.load('models/models-3/equipment.glb', (obj) => {
+      const mesh = obj.scene
+      mesh.position.set(0, -10, 0)
+      console.log(mesh);
+      mesh.traverse((child) => {
+        if (child.isMesh) {
+          child.material.side = THREE.DoubleSide
+        }
+      })
+      mesh.scale.set(0.002, 0.002, 0.002)
+      scene.add(mesh)
+    })
+
+
+
+    // RENDERER
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setClearColor(0x030B1A)
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    container.appendChild(renderer.domElement);
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.shadowMap.enabled = true;
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.dampingFactor = true
+    stats = new Stats();
+    container.appendChild(stats.dom);
+
+    // var axes = new THREE.AxesHelper(20);
+    // scene.add(axes);
+  }
+
+  function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  function animate() {
+    if (mixer) {
+      mixer.update(clock.getDelta());
+    }
+    controls.update()
+    requestAnimationFrame(animate);
+    render();
+    stats.update();
+  }
+
+  function render() {
+    const delta = clock.getDelta();
+    for (let i = 0; i < mixers.length; i++) {
+      mixers[i].update(delta);
+    }
+    renderer.render(scene, camera);
+    if (labelRenderer) {
+      labelRenderer.render(scene, camera)
+    }
+  }
+
+  window.addEventListener('resize', onWindowResize);
+
+  // window.addEventListener('click', onMouseClick, false);
+
+  // var raycaster = new THREE.Raycaster()
+  // var mouse = new THREE.Vector2()
+
+  // function onMouseClick(event) {
+  //   var vector = new THREE.Vector3((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) *
+  //     2 + 1, 0.5);
+  //   vector = vector.unproject(camera);
+  //   var raycaster = new THREE.Raycaster(camera.position, vector.sub(camera.position).normalize());
+  //   var intersects = raycaster.intersectObjects(scene.children);
+
+  //   if (intersects.length) updateLabel(intersects[0], { cn: "1", en: "2" })
+  // }
+
+  // labelRenderer = new CSS2DRenderer();
+  // labelRenderer.setSize(window.innerWidth, window.innerHeight);
+  // labelRenderer.domElement.style.position = 'absolute';
+  // labelRenderer.domElement.style.top = '0px';
+  // document.body.appendChild(labelRenderer.domElement);
+
+  function updateLabel(intersect, labelData) {
+    var cnDiv = document.getElementById('cn')
+    cnDiv.innerHTML = labelData.cn
+    var enDiv = document.getElementById('en')
+    enDiv.innerHTML = labelData.en
+    var str = ""
+    str += `<li>
+                    <span>1</span>
+                    <span>2</span>
+                    <span>3</span>
+                </li>`
+    document.getElementById('valueUl').innerHTML = str
+    const point = intersect.point;
+    let labelCSS2D = new CSS2DObject(document.getElementById('equipmentLabelRef'));
+    labelCSS2D.position.set(point.x - 0.01, point.y + 0.01, point.z - 0.03);
+    labelCSS2D.visible = true
+    scene.add(labelCSS2D);
+  }
+
+
+</script>
+
+</html>
