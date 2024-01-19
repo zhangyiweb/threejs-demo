@@ -1,0 +1,142 @@
+<!--
+ * @Descripttion: 
+ * @Date: 2022-07-19 14:44:28
+-->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      box-sizing: border-box;
+    }
+  </style>
+
+  <body>
+    <div id="container"></div>
+  </body>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./build/three.module.js"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from "three";
+
+    import Stats from "./jsm/libs/stats.module.js";
+    import { GUI } from "./jsm/libs/lil-gui.module.min.js";
+    import { GLTFLoader } from "./jsm/loaders/GLTFLoader.js";
+    import { DRACOLoader } from "./jsm/loaders/DRACOLoader.js";
+    import { OrbitControls } from "./jsm/controls/OrbitControls.js";
+    import { OBJLoader } from "./jsm/loaders/OBJLoader.js";
+    import { MTLLoader } from "./jsm/loaders/MTLLoader.js";
+    import TUtils from "./threejs-until.js";
+
+    let camera, scene, renderer, clock, controls, stats;
+    const container = document.getElementById("container");
+
+    const T = new TUtils(scene);
+    clock = new THREE.Clock();
+
+    /* 场景 */
+    function initScene() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color("#7DD5EE");
+
+      stats = new Stats();
+      container.appendChild(stats.dom);
+
+      var axes = new THREE.AxesHelper(100);
+      scene.add(axes);
+    }
+
+    /* 相机 */
+    function initCamera() {
+      camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 1, 5000);
+      camera.position.set(0, 200, 400);
+      camera.lookAt(new THREE.Vector3(0, 0, 0));
+    }
+
+    /* 渲染器 */
+    function initRender() {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      container.appendChild(renderer.domElement);
+      renderer.outputEncoding = THREE.sRGBEncoding;
+    }
+
+    /* 灯光 */
+    function initLight() {
+      var ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+      scene.add(ambientLight);
+
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      directionalLight.position.set(50, 200, 100);
+
+      const directionalLightHelper = new THREE.DirectionalLightHelper(directionalLight, 5, 0xffff00);
+      scene.add(directionalLightHelper);
+    }
+
+    /* 控制器 */
+    function initControls() {
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.dampingFactor = true;
+      // controls.minPolarAngle = 0.5;
+      // controls.maxPolarAngle = 1.2;
+    }
+
+    /* 窗口变动触发 */
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate() {
+      // 设置纹理偏移
+      requestAnimationFrame(animate);
+      render();
+    }
+
+    /* 渲染内容 */
+    function initContent() {
+      var pos1 = new THREE.Vector3(0, 1, 0);
+      var pos2 = new THREE.Vector3(0, 3, 0);
+      var distance = pos1.distanceTo(pos2);
+      console.log(distance);
+    }
+
+    function render() {
+      renderer.render(scene, camera);
+      controls.update();
+      stats.update();
+    }
+
+    function init() {
+      initScene();
+      initCamera();
+      initRender();
+      initLight();
+      initControls();
+      initContent();
+      window.addEventListener("resize", onWindowResize, false);
+    }
+
+    /* 初始加载 */
+    (function () {
+      init();
+      animate();
+    })();
+  </script>
+</html>

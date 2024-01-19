@@ -1,0 +1,201 @@
+<!--
+ * @Descripttion: 
+ * @Date: 2022-07-19 14:44:28
+-->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      box-sizing: border-box;
+    }
+  </style>
+
+  <body>
+    <div id="container"></div>
+  </body>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./build/three.module.js"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from "three";
+
+    import Stats from "./jsm/libs/stats.module.js";
+    import { GUI } from "./jsm/libs/lil-gui.module.min.js";
+    import { GLTFLoader } from "./jsm/loaders/GLTFLoader.js";
+    import { DRACOLoader } from "./jsm/loaders/DRACOLoader.js";
+    import { OrbitControls } from "./jsm/controls/OrbitControls.js";
+    import { OBJLoader } from "./jsm/loaders/OBJLoader.js";
+    import { MTLLoader } from "./jsm/loaders/MTLLoader.js";
+
+    import { FXAAShader } from "./jsm/shaders/FXAAShader.js";
+    import { EffectComposer } from "./jsm/postprocessing/EffectComposer.js";
+    import { RenderPass } from "./jsm/postprocessing/RenderPass.js";
+    import { ShaderPass } from "./jsm/postprocessing/ShaderPass.js";
+    import { OutlinePass } from "./jsm/postprocessing/OutlinePass.js";
+
+    import TUtils from "./threejs-until.js";
+
+    let camera, scene, renderer, clock, controls, composer, renderPass, outlinePass, effectFXAA, t, s;
+    const container = document.getElementById("container");
+
+    const T = new TUtils(scene);
+
+    /* 场景 */
+    function initScene() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color("#696969");
+
+      var axes = new THREE.AxesHelper(100);
+      scene.add(axes);
+    }
+
+    /* 相机 */
+    function initCamera() {
+      camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 1, 5000);
+      camera.position.set(0, 200, 400);
+      camera.lookAt(new THREE.Vector3(0, 0, 0));
+    }
+
+    /* 渲染器 */
+    function initRender() {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      container.appendChild(renderer.domElement);
+      renderer.outputEncoding = THREE.sRGBEncoding;
+    }
+
+    /* 灯光 */
+    function initLight() {
+      var ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+      scene.add(ambientLight);
+
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      directionalLight.position.set(50, 200, 100);
+
+      const directionalLightHelper = new THREE.DirectionalLightHelper(directionalLight, 5, 0xffff00);
+      scene.add(directionalLightHelper);
+    }
+
+    /* 控制器 */
+    function initControls() {
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.dampingFactor = true;
+      // controls.minPolarAngle = 0.5;
+      // controls.maxPolarAngle = 1.2;
+    }
+
+    /* 窗口变动触发 */
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate() {
+      // 设置纹理偏移
+      requestAnimationFrame(animate);
+      render();
+      if (s) {
+        s.offset.x -= +0.01;
+      }
+      if (composer) {
+        composer.render();
+      }
+    }
+
+    /* 渲染内容 */
+    function initContent() {
+      T.createGltfMeta("./练习模型/模型3/xianlu.glb").then((res) => {
+        s = res.scene.children[0].material.map;
+
+        res.scene.position.y = 30;
+
+        setTimeout(() => {
+          console.log(1111111111);
+          addColor("0xDC143C", [scene.getObjectByName("4Fxianlu"), scene.getObjectByName("6Fxianlu")]);
+        }, 5000);
+        scene.add(res.scene);
+      });
+    }
+
+    function render() {
+      renderer.render(scene, camera);
+      controls.update();
+    }
+
+    function init() {
+      initScene();
+      initCamera();
+      initRender();
+      initLight();
+      initControls();
+      initContent();
+      window.addEventListener("resize", onWindowResize, false);
+    }
+
+    /* 初始加载 */
+    (function () {
+      init();
+      animate();
+    })();
+
+    // window.addEventListener("click", onMouseClick, false);
+
+    function onMouseClick(event) {
+      var vector = new THREE.Vector3((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1, 0.5);
+      vector = vector.unproject(camera);
+      var raycaster = new THREE.Raycaster(camera.position, vector.sub(camera.position).normalize());
+      var intersects = raycaster.intersectObjects(scene.children);
+
+      if (intersects.length) {
+        console.log("intersects", intersects);
+        addColor("0xDC143C", [intersects[0].object]);
+      }
+    }
+
+    function addColor(color, selectedObjects) {
+      composer = new EffectComposer(renderer);
+      renderPass = new RenderPass(scene, camera);
+      composer.addPass(renderPass);
+
+      outlinePass = new OutlinePass(new THREE.Vector2(window.innerWidth, window.innerHeight), scene, camera);
+
+      outlinePass.edgeStrength = 10.0; // 边框的亮度
+      outlinePass.edgeGlow = 1; // 光晕[0,1]
+      outlinePass.usePatternTexture = false; // 是否使用父级的材质
+      outlinePass.edgeThickness = 1.0; // 边框宽度
+      outlinePass.downSampleRatio = 2; // 边框弯曲度
+      outlinePass.pulsePeriod = 5; // 呼吸闪烁的速度
+      outlinePass.visibleEdgeColor.set(parseInt(color)); // 呼吸显示的颜色
+      outlinePass.hiddenEdgeColor = new THREE.Color(0, 0, 0); // 呼吸消失的颜色
+      outlinePass.clear = true;
+      composer.addPass(outlinePass);
+
+      effectFXAA = new ShaderPass(FXAAShader);
+      effectFXAA.uniforms.resolution.value.set(1 / window.innerWidth, 1 / window.innerHeight);
+      effectFXAA.renderToScreen = true;
+      composer.addPass(effectFXAA);
+      outlinePass.selectedObjects = selectedObjects;
+      console.log(outlinePass);
+      return {
+        composer, // composer在render循环函数中调用
+        outlinePass, // 实例化一次后设置  outlinePass.selectedObjects = selectedObjects
+      };
+    }
+  </script>
+</html>

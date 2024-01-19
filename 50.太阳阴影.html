@@ -1,0 +1,181 @@
+<!--
+ * @Descripttion: 
+ * @Date: 2022-07-19 14:44:28
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+</style>
+
+<body>
+  <div id="container"></div>
+</body>
+<script type="importmap">
+  {
+    "imports": {
+      "three": "./build/three.module.js"
+    }
+  }
+</script>
+
+<script type="module">
+
+  import * as THREE from 'three';
+
+  import Stats from './jsm/libs/stats.module.js';
+  import { GUI } from './jsm/libs/lil-gui.module.min.js';
+  import { GLTFLoader } from './jsm/loaders/GLTFLoader.js';
+  import { DRACOLoader } from './jsm/loaders/DRACOLoader.js';
+  import { OrbitControls } from './jsm/controls/OrbitControls.js';
+  import { OBJLoader } from './jsm/loaders/OBJLoader.js';
+  import { MTLLoader } from './jsm/loaders/MTLLoader.js';
+  import { Water } from './jsm/objects/Water.js';
+  import TUtils from "./threejs-until.js"
+  import { Lensflare, LensflareElement } from './jsm/objects/Lensflare.js';
+
+
+  let camera, scene, renderer, clock, controls, water, lightHelper
+  const container = document.getElementById('container');
+
+  const T = new TUtils(scene)
+
+  /* 场景 */
+  function initScene() {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color("#7DD5EE")
+
+    var axes = new THREE.AxesHelper(20);
+    scene.add(axes);
+  }
+
+  /* 相机 */
+  function initCamera() {
+    camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 1, 5000);
+    camera.position.set(0, 0, 100);
+    camera.lookAt(new THREE.Vector3(0, 0, 0));
+  }
+
+  /* 渲染器 */
+  function initRender() {
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+    renderer.outputEncoding = THREE.sRGBEncoding;
+  }
+
+  /* 灯光 */
+  function initLight() {
+    const ambientLight = new THREE.AmbientLight(0xffffff, .5);
+    scene.add(ambientLight);
+
+
+    const pointLight = new THREE.PointLight(0xffffff, 1.2, 2000);
+    pointLight.color.setHSL(.995, .5, .9);
+    pointLight.position.set(0, 45, 0);
+    // pointLight.position.set(-100, 45, -500);
+    const textureLoader = new THREE.TextureLoader();
+    const textureFlare0 = textureLoader.load("./island/lensflare0.png");
+    const textureFlare1 = textureLoader.load("./island/lensflare1.png");
+    // 镜头光晕
+    const lensflare = new Lensflare();
+    lensflare.addElement(new LensflareElement(textureFlare0, 300, 0, pointLight.color));
+    lensflare.addElement(new LensflareElement(textureFlare1, 60, .6));
+    lensflare.addElement(new LensflareElement(textureFlare1, 70, .7));
+    lensflare.addElement(new LensflareElement(textureFlare1, 120, .9));
+    lensflare.addElement(new LensflareElement(textureFlare1, 70, 1));
+    pointLight.add(lensflare);
+    pointLight.castShadow = true;
+    pointLight.distance = 100;
+    pointLight.intensity = 1;// 光源强度
+    // 光线衰减 默认 1
+    pointLight.decay = 2;
+    pointLight.penumbra = 1;
+    // 阴影有点模糊下设置
+    pointLight.shadow.mapSize.width = 1024;
+    pointLight.shadow.mapSize.height = 1024;
+    scene.add(pointLight);
+  }
+
+
+  /* 控制器 */
+  function initControls() {
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.dampingFactor = true
+  }
+
+
+
+  /* 窗口变动触发 */
+  function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  function animate() {
+    // 设置纹理偏移
+    requestAnimationFrame(animate);
+    render();
+  }
+
+
+  /* 渲染内容 */
+  function initContent() {
+    const geometry = new THREE.PlaneGeometry(50, 50);
+    const material = new THREE.MeshPhongMaterial({ color: 0x808080, side: THREE.DoubleSide });
+    const plane = new THREE.Mesh(geometry, material);
+    plane.rotation.x = Math.PI / 2
+    plane.receiveShadow = true;
+    scene.add(plane);
+
+    const geometry1 = new THREE.BoxGeometry(5, 5, 5);
+    const material1 = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+    const cube = new THREE.Mesh(geometry1, material1);
+    cube.castShadow = true;
+    cube.position.y = 5
+    scene.add(cube);
+  }
+
+  function render() {
+    renderer.render(scene, camera);
+    controls.update()
+
+    // lightHelper.update();
+  }
+
+  function init() {
+    initScene();
+    initCamera();
+    initRender();
+    initLight();
+    initControls();
+    initContent();
+    window.addEventListener('resize', onWindowResize, false);
+  }
+
+  /* 初始加载 */
+  (function () {
+    init();
+    animate();
+  })();
+
+
+</script>
+
+</html>
