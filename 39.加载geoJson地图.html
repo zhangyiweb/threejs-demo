@@ -1,0 +1,264 @@
+<!--
+ * @Descripttion: 
+ * @Date: 2022-07-19 14:44:28
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+</style>
+
+<body>
+  <div id="container"></div>
+</body>
+<script type="importmap">
+  {
+    "imports": {
+      "three": "./build/three.module.js"
+    }
+  }
+</script>
+<script src="./js/jquery-1.10.2.min.js"></script>
+<script type="module">
+
+  import * as THREE from 'three';
+
+  import Stats from './jsm/libs/stats.module.js';
+  import { GUI } from './jsm/libs/lil-gui.module.min.js';
+  import { GLTFLoader } from './jsm/loaders/GLTFLoader.js';
+  import { DRACOLoader } from './jsm/loaders/DRACOLoader.js';
+  import { OrbitControls } from './jsm/controls/OrbitControls.js';
+  import { OBJLoader } from './jsm/loaders/OBJLoader.js';
+  import { MTLLoader } from './jsm/loaders/MTLLoader.js';
+  import TUtils from "./threejs-until.js"
+
+
+  let camera, scene, renderer, clock, controls
+  const container = document.getElementById('container');
+
+  const T = new TUtils(scene)
+
+  /* 场景 */
+  function initScene() {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color("#7DD5EE")
+
+    var axes = new THREE.AxesHelper(20);
+    scene.add(axes);
+  }
+
+  /* 相机 */
+  function initCamera() {
+    camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 1, 5000);
+    camera.position.set(0, 200, 200);
+    camera.lookAt(new THREE.Vector3(0, 0, 0));
+  }
+
+  /* 渲染器 */
+  function initRender() {
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    container.appendChild(renderer.domElement);
+    renderer.outputEncoding = THREE.sRGBEncoding;
+  }
+
+  /* 灯光 */
+  function initLight() {
+    var ambientLight = new THREE.AmbientLight(0xffffff, 4);
+    scene.add(ambientLight);
+  }
+
+
+  /* 控制器 */
+  function initControls() {
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.dampingFactor = true
+  }
+
+
+
+  /* 窗口变动触发 */
+  function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  function animate() {
+    // 设置纹理偏移
+    requestAnimationFrame(animate);
+    render();
+  }
+
+
+  /* 渲染内容 */
+  function initContent() {
+    // 组对象mapGroup是所有国家边界Line模型的父对象
+    var mapGroup = new THREE.Group();
+    scene.add(mapGroup);
+    var lineGroup = new THREE.Group();//边界线组
+    mapGroup.add(lineGroup);
+    var meshGroup = new THREE.Group();//轮廓Mesh组
+    mapGroup.add(meshGroup);
+    var mapHeight = 2;//拉伸高度
+    lineGroup.position.z = mapHeight + mapHeight * 0.01;//适当偏移解决深度冲突
+    //three.js文件加载类FileLoader：封装了XMLHttpRequest
+    var loader = new THREE.FileLoader();
+    loader.setResponseType('json');
+    loader.load('./js/zhongguo.json', function (data) {
+      // 访问所有国家边界坐标数据：data.features
+      data.features.forEach(function (area) {
+        // "Polygon"：国家area有一个封闭轮廓
+        //"MultiPolygon"：国家area有多个封闭轮廓
+        if (!area.properties.name) {
+          // 去掉九段线
+          return
+        }
+        if (area.geometry.type === "Polygon") {
+          // 把"Polygon"和"MultiPolygon"的geometry.coordinates数据结构处理为一致
+          area.geometry.coordinates = [area.geometry.coordinates];
+        }
+        // 解析所有封闭轮廓边界坐标area.geometry.coordinates
+        lineGroup.add(createLine(area.geometry.coordinates));//国家边界轮廓插入组对象lineGroup
+        meshGroup.add(ExtrudeMesh(area.geometry.coordinates, mapHeight));//拉伸
+        //行政中心贴图
+        var geometry = new THREE.PlaneBufferGeometry(0.1, 0.1); //默认在XOY平面上
+        var textureLoader = new THREE.TextureLoader(); // TextureLoader创建一个纹理加载器对象
+        var material = new THREE.MeshBasicMaterial({
+          map: textureLoader.load('./assets/textures/dot.png'),
+          transparent: true, //使用背景透明的png贴图，注意开启透明计算
+          // side: THREE.DoubleSide, //双面可见
+        });
+        var pos = area.properties.center;
+        var mesh = new THREE.Mesh(geometry, material);
+        mesh.scale.set(10, 10, 10);//设置mesh大小
+        pos && mesh.position.set(pos[0], pos[1], 0);//设置mesh位置
+        mesh.position.z = mapHeight + mapHeight * 0.01;
+        scene.add(mesh);
+      });
+
+      //添加底部边线
+      let lineGroup2 = lineGroup.clone()
+      mapGroup.add(lineGroup2);
+      lineGroup2.position.z = -mapHeight * 0.01;//适当偏移解决深度冲突
+    })
+  }
+
+  function createLine(pointsArrs, isMercator) {
+    var group = new THREE.Group() //一个国家多个轮廓线条line的父对象
+    pointsArrs.forEach((polygon) => {
+      var pointArr = [] //边界线顶点坐标
+      polygon[0].forEach((elem) => {
+        if (isMercator) {
+          // 经纬度转墨卡托坐标
+          var coord = lonLat2Mercator(elem[0], elem[1])
+          pointArr.push(coord.x, coord.y, 0)
+        } else {
+          pointArr.push(elem[0], elem[1], 0)
+        }
+      })
+      group.add(lineLoop(pointArr))
+    })
+    return group
+  }
+
+  function lineLoop(pointArr) {
+    /**
+     * 通过BufferGeometry构建一个几何体，传入顶点数据
+     * 通过Line模型渲染几何体，连点成线
+     * LineLoop和Line功能一样，区别在于首尾顶点相连，轮廓闭合
+     */
+    var geometry = new THREE.BufferGeometry() //创建一个Buffer类型几何体对象
+    //类型数组创建顶点数据
+    var vertices = new Float32Array(pointArr)
+
+    // 创建属性缓冲区对象
+    var attribue = new THREE.BufferAttribute(vertices, 3) //3个为一组，表示一个顶点的xyz坐标
+    // 设置几何体attributes属性的位置属性
+    geometry.attributes.position = attribue
+    // 线条渲染几何体顶点数据
+    var material = new THREE.LineBasicMaterial({
+      color: 0x00a5d1 //线条颜色
+    }) //材质对象
+    // var line = new THREE.Line(geometry, material);//线条模型对象
+    var line = new THREE.LineLoop(geometry, material) //首尾顶点连线，轮廓闭合
+    return line
+  }
+
+  // 拉伸材质
+  function ExtrudeMesh(pointsArrs, height, isMercator) {
+    var shapeArr = [] //轮廓形状Shape集合
+    pointsArrs.forEach((pointsArr) => {
+      var vector2Arr = []
+      // 转化为Vector2构成的顶点数组
+      pointsArr[0].forEach((elem) => {
+        if (isMercator) {
+          // 经纬度转墨卡托坐标
+          var coord = lonLat2Mercator(elem[0], elem[1])
+          vector2Arr.push(new THREE.Vector2(coord.x, coord.y))
+        } else {
+          vector2Arr.push(new THREE.Vector2(elem[0], elem[1]))
+        }
+      })
+      var shape = new THREE.Shape(vector2Arr)
+      shapeArr.push(shape)
+    })
+    // MeshBasicMaterial:不受光照影响
+    // MeshLambertMaterial：几何体表面和光线角度不同，明暗不同
+    var material = new THREE.MeshLambertMaterial({
+      color: 0x1479b1
+      // transparent: true,
+      // opacity: 0.8,
+    }) //材质对象
+    var geometry = new THREE.ExtrudeBufferGeometry( //拉伸造型
+      shapeArr, //多个多边形二维轮廓
+      //拉伸参数
+      {
+        // depth：根据行政区尺寸范围设置，比如高度设置为尺寸范围的2%，过小感觉不到高度，过大太高了
+        depth: height, //拉伸高度
+        bevelEnabled: false //无倒角
+      }
+    )
+    var mesh = new THREE.Mesh(geometry, material) //网格模型对象
+    return mesh
+  }
+
+
+  function render() {
+    renderer.render(scene, camera);
+    controls.update()
+  }
+
+  function init() {
+    initScene();
+    initCamera();
+    initRender();
+    initLight();
+    initControls();
+    initContent();
+    window.addEventListener('resize', onWindowResize, false);
+  }
+
+  /* 初始加载 */
+  (function () {
+    init();
+    animate();
+  })();
+
+
+</script>
+
+</html>

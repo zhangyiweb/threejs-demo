@@ -1,0 +1,157 @@
+<!--
+ * @Descripttion: 
+ * @Date: 2022-07-19 14:44:28
+-->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      box-sizing: border-box;
+    }
+  </style>
+
+  <body>
+    <div id="container"></div>
+  </body>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./build/three.module.js"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from "three";
+
+    import Stats from "./jsm/libs/stats.module.js";
+    import { GUI } from "./jsm/libs/lil-gui.module.min.js";
+    import { GLTFLoader } from "./jsm/loaders/GLTFLoader.js";
+    import { DRACOLoader } from "./jsm/loaders/DRACOLoader.js";
+    import { OrbitControls } from "./jsm/controls/OrbitControls.js";
+    import { OBJLoader } from "./jsm/loaders/OBJLoader.js";
+    import { MTLLoader } from "./jsm/loaders/MTLLoader.js";
+    import TUtils from "./threejs-until.js";
+
+    let camera, scene, renderer, clock, controls;
+    const container = document.getElementById("container");
+    var texture = new THREE.TextureLoader().load("/assets/img/lightLine.png");
+
+    const T = new TUtils(scene);
+    clock = new THREE.Clock();
+    /* 场景 */
+    function initScene() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color("#7DD5EE");
+
+      var axes = new THREE.AxesHelper(100);
+      scene.add(axes);
+    }
+
+    /* 相机 */
+    function initCamera() {
+      camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 1, 5000);
+      camera.position.set(0, 200, 400);
+      camera.lookAt(new THREE.Vector3(0, 0, 0));
+    }
+
+    /* 渲染器 */
+    function initRender() {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      container.appendChild(renderer.domElement);
+      renderer.outputEncoding = THREE.sRGBEncoding;
+    }
+
+    /* 灯光 */
+    function initLight() {
+      var ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+      scene.add(ambientLight);
+
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      directionalLight.position.set(50, 200, 100);
+
+      const directionalLightHelper = new THREE.DirectionalLightHelper(directionalLight, 5, 0xffff00);
+      scene.add(directionalLightHelper);
+    }
+
+    /* 控制器 */
+    function initControls() {
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.dampingFactor = true;
+      // controls.minPolarAngle = 0.5;
+      // controls.maxPolarAngle = 1.2;
+    }
+
+    /* 窗口变动触发 */
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate() {
+      // 设置纹理偏移
+      requestAnimationFrame(animate);
+      render();
+
+      texture.offset.x -= 0.02;
+    }
+
+    /* 渲染内容 */
+    function initContent() {
+      var curve = new THREE.CatmullRomCurve3([new THREE.Vector3(-80, -40, 0), new THREE.Vector3(-70, 40, 0), new THREE.Vector3(70, 40, 0), new THREE.Vector3(80, -40, 0)]);
+      var tubeGeometry = new THREE.TubeGeometry(curve, 100, 2, 50, false); // 管道几何体，参考官方文档
+
+      texture.wrapS = THREE.RepeatWrapping; // 水平平铺模式
+      texture.wrapT = THREE.RepeatWrapping; // 垂直平铺模式
+      texture.repeat.set(20, 1); // 纹理会自动铺满整个坐标系，这里的平铺实际是对顶点的纹理坐标进行了缩放，参考threejs--纹理贴图--纹理矩阵--笔记
+      var tubeMaterial = new THREE.MeshPhongMaterial({ map: texture, transparent: true });
+      var tube = new THREE.Mesh(tubeGeometry, tubeMaterial);
+      scene.add(tube);
+
+      // 再创建一个半透明的管道套在外部
+      var tubeGeometry2 = new THREE.TubeGeometry(curve, 100, 6, 50, false);
+      var tubeMaterial2 = new THREE.MeshPhongMaterial({
+        color: "#FFD700",
+        transparent: true,
+        depthWrite: false,
+        opacity: 0.1,
+        side: THREE.DoubleSide,
+      });
+      var tube2 = new THREE.Mesh(tubeGeometry2, tubeMaterial2);
+      scene.add(tube2);
+    }
+
+    function render() {
+      renderer.render(scene, camera);
+      controls.update();
+    }
+
+    function init() {
+      initScene();
+      initCamera();
+      initRender();
+      initLight();
+      initControls();
+      initContent();
+      window.addEventListener("resize", onWindowResize, false);
+    }
+
+    /* 初始加载 */
+    (function () {
+      init();
+      animate();
+    })();
+  </script>
+</html>

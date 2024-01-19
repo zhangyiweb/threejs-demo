@@ -1,0 +1,279 @@
+<!--
+ * @Descripttion: 
+ * @Date: 2022-07-19 14:44:28
+-->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      box-sizing: border-box;
+    }
+
+    .tool {
+      width: 50px;
+      height: 500px;
+      border: 1px solid #000;
+      position: absolute;
+      top: 30px;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .tool img {
+      width: 40px;
+      /* user-drag: none; */
+      user-select: none;
+
+      /* -webkit-user-drag: auto;
+      user-select: auto; */
+    }
+
+    .ddd {
+      width: 150px;
+      height: 150px;
+      background-image: url("./assets/images/box.png");
+      background-size: 100% 100%;
+      background-repeat: no-repeat;
+    }
+  </style>
+
+  <body>
+    <div class="tool">
+      <!-- <div class="img1 ddd" id="img1"></div> -->
+      <img src="./assets/images/box.png" alt="" class="img1" id="img1" draggable="true" />
+    </div>
+    <div id="container"></div>
+  </body>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./build/three.module.js"
+      }
+    }
+  </script>
+  <!-- <script src="./js/jquery-1.10.2.min.js"></script> -->
+  <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.7.1/jquery.js"></script>
+  <!-- <script src="https://cdn.bootcdn.net/ajax/libs/jqueryui/1.13.2/jquery-ui.js"></script> -->
+  <script type="module">
+    import * as THREE from "three";
+
+    import Stats from "./jsm/libs/stats.module.js";
+    import { GUI } from "./jsm/libs/lil-gui.module.min.js";
+    import { GLTFLoader } from "./jsm/loaders/GLTFLoader.js";
+    import { DRACOLoader } from "./jsm/loaders/DRACOLoader.js";
+    import { OrbitControls } from "./jsm/controls/OrbitControls.js";
+    import { OBJLoader } from "./jsm/loaders/OBJLoader.js";
+    import { MTLLoader } from "./jsm/loaders/MTLLoader.js";
+    import TUtils from "./threejs-until.js";
+
+    let camera, scene, renderer, clock, controls;
+    let cube, cube2;
+    const container = document.getElementById("container");
+    let px, py, pz;
+
+    const T = new TUtils(scene);
+    clock = new THREE.Clock();
+    /* 场景 */
+    function initScene() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color("#7DD5EE");
+
+      var axes = new THREE.AxesHelper(100);
+      scene.add(axes);
+    }
+
+    /* 相机 */
+    function initCamera() {
+      camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 1, 5000);
+      camera.position.set(0, 200, 400);
+      camera.lookAt(new THREE.Vector3(0, 0, 0));
+    }
+
+    /* 渲染器 */
+    function initRender() {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      container.appendChild(renderer.domElement);
+      renderer.outputEncoding = THREE.sRGBEncoding;
+    }
+
+    /* 灯光 */
+    function initLight() {
+      var ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+      scene.add(ambientLight);
+
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      directionalLight.position.set(50, 200, 100);
+
+      const directionalLightHelper = new THREE.DirectionalLightHelper(directionalLight, 5, 0xffff00);
+      scene.add(directionalLightHelper);
+    }
+
+    /* 控制器 */
+    function initControls() {
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.dampingFactor = true;
+      // controls.minPolarAngle = 0.5;
+      // controls.maxPolarAngle = 1.2;
+    }
+
+    /* 窗口变动触发 */
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate() {
+      // 设置纹理偏移
+      requestAnimationFrame(animate);
+      render();
+    }
+
+    /* 渲染内容 */
+    function initContent() {
+      const geometry = new THREE.BoxGeometry(15, 15, 15);
+      const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+      cube = new THREE.Mesh(geometry, material);
+      cube.name = "cube";
+      scene.add(cube);
+
+      const geometry2 = new THREE.BoxGeometry(1, 1, 1);
+      const material2 = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+      cube2 = new THREE.Mesh(geometry2, material2);
+      cube2.name = "cube2";
+      cube2.position.set(30, 0, 0);
+      scene.add(cube2);
+
+      const geometry3 = new THREE.PlaneGeometry(1000, 1000);
+      const material3 = new THREE.MeshBasicMaterial({ color: 0xdddddd, side: THREE.DoubleSide });
+      const plane = new THREE.Mesh(geometry3, material3);
+      plane.rotation.x = -0.5 * Math.PI;
+      plane.name = "plane";
+      scene.add(plane);
+    }
+
+    function render() {
+      renderer.render(scene, camera);
+      controls.update();
+    }
+
+    function init() {
+      initScene();
+      initCamera();
+      initRender();
+      initLight();
+      initControls();
+      initContent();
+      window.addEventListener("resize", onWindowResize, false);
+    }
+
+    // window.addEventListener("mousemove", onMouseClick, false);
+
+    function onMouseClick(event) {
+      let t = getClickModel(event);
+
+      if (t) {
+        let o = t.point;
+        if (t.object.name === "cube") return;
+        console.log(t);
+        if (o) {
+          px = o.x;
+          py = o.y;
+          pz = o.z;
+        }
+      }
+    }
+
+    var source = document.querySelector("#img1");
+    var target = document.querySelector("#container");
+
+    source.addEventListener("dragstart", function (event) {
+      // 设置拖动数据
+      console.log(source);
+      console.log(source.value);
+
+      event.dataTransfer.setData("text", source.value);
+      source.style.opacity = "0.5";
+      console.log("dragstart");
+    });
+
+    target.addEventListener("dragenter", function (event) {
+      console.log("dragenter");
+    });
+
+    target.addEventListener("dragover", function (event) {
+      console.log("dragover");
+      event.preventDefault();
+
+      onMouseClick(event);
+    });
+
+    target.addEventListener("drop", function (event) {
+      console.log("drop");
+      event.preventDefault();
+      cube.position.set(px, py, pz);
+
+      // 获取拖动数据
+      // var data = event.dataTransfer.getData("text/plain");
+
+      // 在目标元素中显示拖动数据
+      // target.value = data;
+
+      // 恢复源元素样式
+      source.style.opacity = "1";
+    });
+
+    // $(".img1").on("drag", function (event) {
+    //   // event.stopPropagation();
+    //   // event.preventDefault();
+    //   // event.originalEvent.preventDefault();
+    //   // console.log(event);
+    //   console.log(1111);
+
+    //   onMouseClick(event);
+    // });
+
+    // $(".img1").on("dragend", function (e) {
+    //   console.log("鼠标放下");
+    // });
+
+    function getClickModel(event) {
+      var intersects = getIntersects(event);
+
+      if (intersects.length !== 0 && intersects[0].object instanceof THREE.Mesh) {
+        return intersects[0];
+        // return intersects[0].point;
+      }
+
+      function getIntersects(event) {
+        event.preventDefault();
+        var raycaster = new THREE.Raycaster();
+        var mouse = new THREE.Vector2();
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        var intersects = raycaster.intersectObjects(scene.children);
+        return intersects;
+      }
+    }
+
+    /* 初始加载 */
+    (function () {
+      init();
+      animate();
+    })();
+  </script>
+</html>

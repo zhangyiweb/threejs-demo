@@ -1,0 +1,91 @@
+<!--
+ * @Descripttion: 
+ * @Date: 2022-07-19 14:44:28
+-->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      box-sizing: border-box;
+    }
+  </style>
+
+  <body>
+    <div id="container"></div>
+  </body>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./build/three.module.js"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { GLTFLoader } from "./jsm/loaders/GLTFLoader.js";
+
+    //用于存储数据库
+    var db;
+    //打开数据表
+    var request = window.indexedDB.open("webDB", 1);
+
+    request.onerror = function (event) {
+      console.log("数据库打开报错");
+    };
+
+    request.onsuccess = function (event) {
+      db = event.target.result;
+      console.log("数据库打开成功");
+
+      add({ id: "glb", name: "加载场景", model: 11111 });
+
+      setTimeout(() => {
+        get("glb");
+      }, 5000);
+    };
+
+    //定义表结构
+    request.onupgradeneeded = function (event) {
+      db = event.target.result;
+
+      let objectStore;
+      if (!db.objectStoreNames.contains("models")) {
+        objectStore = db.createObjectStore("models", { keyPath: "id" });
+        objectStore.createIndex("id", "id", { unique: true });
+        objectStore.createIndex("name", "name");
+        objectStore.createIndex("model", "model");
+      }
+    };
+
+    function add(book) {
+      let request1 = request.result.transaction(["models"], "readwrite").objectStore("models").add({
+        // 插入记录
+        id: book.id,
+        name: book.name,
+        model: book.model,
+      });
+    }
+
+    function get(key) {
+      let request1 = request.result.transaction(["models"], "readwrite").objectStore("models").get(key);
+
+      request1.onsuccess = function (event) {
+        console.log("gltf", event.target.result);
+      };
+    }
+
+    var loader = new GLTFLoader();
+
+    loader.load("/练习模型/模型6/yuanqu1.glb", function (gltf) {});
+  </script>
+</html>
