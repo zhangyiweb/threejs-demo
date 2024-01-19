@@ -1,0 +1,218 @@
+<!--
+ * @Descripttion: 
+ * @Date: 2022-07-19 14:44:28
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+</style>
+
+<body>
+  <div id="container"></div>
+</body>
+<script type="importmap">
+  {
+    "imports": {
+      "three": "./build/three.module.js"
+    }
+  }
+</script>
+
+<script type="module">
+
+  import * as THREE from 'three';
+
+  import Stats from './jsm/libs/stats.module.js';
+  import { GUI } from './jsm/libs/lil-gui.module.min.js';
+  import { GLTFLoader } from './jsm/loaders/GLTFLoader.js';
+  import { DRACOLoader } from './jsm/loaders/DRACOLoader.js';
+  import { OrbitControls } from './jsm/controls/OrbitControls.js';
+  import { OBJLoader } from './jsm/loaders/OBJLoader.js';
+  import { MTLLoader } from './jsm/loaders/MTLLoader.js';
+  import { Water } from './jsm/objects/Water.js';
+  import TUtils from "./threejs-until.js"
+  import { Lensflare, LensflareElement } from './jsm/objects/Lensflare.js';
+
+
+  let camera, scene, renderer, clock, controls, water
+  const container = document.getElementById('container');
+
+  const T = new TUtils(scene)
+
+  /* 场景 */
+  function initScene() {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color("#7DD5EE")
+
+    var axes = new THREE.AxesHelper(20);
+    scene.add(axes);
+  }
+
+  /* 相机 */
+  function initCamera() {
+    camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 1, 5000);
+    camera.position.set(-15, 8, 5);
+    camera.lookAt(new THREE.Vector3(0, 0, 0));
+  }
+
+  /* 渲染器 */
+  function initRender() {
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    container.appendChild(renderer.domElement);
+    renderer.outputEncoding = THREE.sRGBEncoding;
+  }
+
+  /* 灯光 */
+  function initLight() {
+    const ambientLight = new THREE.AmbientLight(0xffffff, .5);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, .5);
+    dirLight.color.setHSL(.1, 1, .95);
+    dirLight.position.set(-1, 1.75, 1);
+    dirLight.position.multiplyScalar(30);
+    scene.add(dirLight);
+
+
+    const pointLight = new THREE.PointLight(0xffffff, 1.2, 2000);
+    pointLight.color.setHSL(.995, .5, .9);
+    pointLight.position.set(1000, 45, -500);
+    const textureLoader = new THREE.TextureLoader();
+    const textureFlare0 = textureLoader.load("./island/lensflare0.png");
+    const textureFlare1 = textureLoader.load("./island/lensflare1.png");
+    // 镜头光晕
+    const lensflare = new Lensflare();
+    lensflare.addElement(new LensflareElement(textureFlare0, 600, 0, pointLight.color));
+    lensflare.addElement(new LensflareElement(textureFlare1, 60, .6));
+    lensflare.addElement(new LensflareElement(textureFlare1, 70, .7));
+    lensflare.addElement(new LensflareElement(textureFlare1, 120, .9));
+    lensflare.addElement(new LensflareElement(textureFlare1, 70, 1));
+    pointLight.add(lensflare);
+    scene.add(pointLight);
+  }
+
+
+  /* 控制器 */
+  function initControls() {
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.dampingFactor = true
+  }
+
+
+
+  /* 窗口变动触发 */
+  function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  function animate() {
+    // 设置纹理偏移
+    requestAnimationFrame(animate);
+    render();
+  }
+
+
+  /* 渲染内容 */
+  let mixers = []
+  let mixer = null
+  function initContent() {
+    //加载海岛
+    T.createGltfMeta("./island/island.glb").then((res) => {
+      res.scene.position.y = -0.1
+      scene.add(res.scene)
+    })
+
+    //加载鸟
+    T.createGltfMeta("./island/flamingo.glb").then((res) => {
+      console.log("res",res);
+      const mesh = res.scene
+      mesh.scale.set(0.005, 0.005, 0.005)
+      mesh.position.set(0, 3, -2)
+      scene.add(mesh)
+
+      mixer = new THREE.AnimationMixer(res.scene.children[0]);
+      mixer.clipAction(res.animations[0]).setDuration(1).play();
+      mixers.push(mixer);
+    })
+
+    //加载水面
+    var waterGeometry = new THREE.PlaneBufferGeometry(10000, 10000);
+    var light = new THREE.DirectionalLight(0xffffff, 0.8);
+    scene.add(light);
+    water = new Water(
+      waterGeometry,
+      {
+        textureWidth: 512,
+        textureHeight: 512,
+        waterNormals: new THREE.TextureLoader().load('./assets/img/waternormals.jpg', function (texture) {
+          texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        }),
+        alpha: 1.0,
+        sunDirection: light.position.clone().normalize(),
+        sunColor: 0xffffff,
+        waterColor: 0x00456e,
+        distortionScale: 5.7,
+        fog: scene.fog !== undefined
+      }
+    );
+    water.rotation.x = - Math.PI / 2;
+    scene.add(water);
+
+
+    const textureTorus = T.initTexture("./island/shader.png")
+    const geometry = new THREE.TorusGeometry(6, 0.4, 16, 100, Math.PI);
+    const material = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.2, map: textureTorus });
+    const torus = new THREE.Mesh(geometry, material);
+    torus.rotation.y = Math.PI / 2
+    scene.add(torus);
+  }
+
+  clock = new THREE.Clock();
+  function render() {
+    renderer.render(scene, camera);
+    controls.update()
+
+    mixers.map((item) => {
+      item && item.update(clock.getDelta());
+    })
+
+    water.material.uniforms['time'].value += 1.0 / 60.0;
+  }
+
+  function init() {
+    initScene();
+    initCamera();
+    initRender();
+    initLight();
+    initControls();
+    initContent();
+    window.addEventListener('resize', onWindowResize, false);
+  }
+
+  /* 初始加载 */
+  (function () {
+    init();
+    animate();
+  })();
+
+
+</script>
+
+</html>

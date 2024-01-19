@@ -1,0 +1,282 @@
+<!--
+ * @Descripttion: 
+ * @Date: 2022-07-19 14:44:28
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+</style>
+
+<body>
+  <div id="container"></div>
+</body>
+<script type="importmap">
+  {
+    "imports": {
+      "three": "./build/three.module.js"
+    }
+  }
+</script>
+<script src="./js/tween.min.js"></script>
+<script type="module">
+
+  import * as THREE from 'three';
+
+  import Stats from './jsm/libs/stats.module.js';
+  import { GUI } from './jsm/libs/lil-gui.module.min.js';
+  import { GLTFLoader } from './jsm/loaders/GLTFLoader.js';
+  import { DRACOLoader } from './jsm/loaders/DRACOLoader.js';
+  import { OrbitControls } from './jsm/controls/OrbitControls.js';
+  import { OBJLoader } from './jsm/loaders/OBJLoader.js';
+  import { MTLLoader } from './jsm/loaders/MTLLoader.js';
+  import TUtils from "./threejs-until.js"
+
+
+  let camera, scene, renderer, clock, controls, tween
+  const container = document.getElementById('container');
+  let car, line, line2
+  const T = new TUtils(scene)
+
+  /* 场景 */
+  function initScene() {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color("#001738")
+
+    var axes = new THREE.AxesHelper(20);
+    scene.add(axes);
+  }
+
+  /* 相机 */
+  function initCamera() {
+    camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 1, 5000);
+    camera.position.set(500, 200, 500);
+    camera.lookAt(new THREE.Vector3(0, 0, 0));
+  }
+
+  /* 渲染器 */
+  function initRender() {
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    container.appendChild(renderer.domElement);
+    renderer.outputEncoding = THREE.sRGBEncoding;
+  }
+
+  /* 灯光 */
+  function initLight() {
+    var ambientLight = new THREE.AmbientLight(0xffffff, 4);
+    scene.add(ambientLight);
+  }
+
+
+  /* 控制器 */
+  function initControls() {
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.dampingFactor = true
+  }
+
+
+
+  /* 窗口变动触发 */
+  function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  function animate() {
+    // 设置纹理偏移
+    requestAnimationFrame(animate);
+    render();
+  }
+
+  let x = 0
+  let z = 125
+  let x2 = 0
+  let z2 = 105
+  function render() {
+    renderer.render(scene, camera);
+    controls.update()
+    TWEEN.update();
+
+
+    if (line) {
+      moveLine(line, -275, -125, 275, 125)
+    }
+  }
+
+  function moveLine(line, A, B, C, D) {
+    if (x === A) {
+      z += 1
+      line.position.x = x
+      line.position.z = z
+      line.rotation.y = 0.5 * Math.PI
+    }
+    if (z === B) {
+      x -= 1
+      line.position.x = x
+      line.position.z = z
+      line.rotation.y = 0 * Math.PI
+    }
+    if (x === C) {
+      z -= 1
+      line.position.x = x
+      line.position.z = z
+      line.rotation.y = 0.5 * Math.PI
+    }
+    if (z === D) {
+      x += 1
+      line.position.x = x
+      line.position.z = z
+      line.rotation.y = 0 * Math.PI
+    }
+  }
+
+  function init() {
+    initScene();
+    initCamera();
+    initRender();
+    initLight();
+    initControls();
+    initContent();
+    window.addEventListener('resize', onWindowResize, false);
+  }
+
+  /* 初始加载 */
+  (function () {
+    init();
+    animate();
+  })();
+
+
+  /* 渲染内容 */
+  function initContent() {
+    let road1 = createPlane(450, 50)
+    road1.rotation.x = 0.5 * Math.PI
+    road1.position.z = 100
+    let road2 = createPlane(450, 50)
+    road2.rotation.x = 0.5 * Math.PI
+    road2.position.z = -100
+
+    let road3 = createPlane(250, 50)
+    road3.rotation.x = 0.5 * Math.PI
+    road3.rotation.z = 0.5 * Math.PI
+    road3.position.x = -250
+
+    let road4 = createPlane(250, 50)
+    road4.rotation.x = 0.5 * Math.PI
+    road4.rotation.z = 0.5 * Math.PI
+    road4.position.x = 250
+    scene.add(road1, road2, road3, road4);
+
+    let box = createBox(20, 20, 20)
+    box.position.set(0, 10, 100)
+    // scene.add(box)
+
+
+
+
+    const loader = new GLTFLoader();
+    const dracoLoader = new DRACOLoader()
+    dracoLoader.setDecoderPath('js/draco/')
+    dracoLoader.preload()
+    loader.setDRACOLoader(dracoLoader)
+    loader.load("./models-2/CheZi.gltf",
+      function (res) {
+        car = res.scene
+        car.scale.set(10, 10, 10)
+        car.position.set(0, 0, 100)
+        scene.add(car)
+        tweenAnimate(car.position)
+      },
+    )
+
+
+
+
+  }
+
+  function tweenAnimate(parames) {
+    tween = new TWEEN.Tween(parames);
+    tween.to({ x: 250, y: 0, z: 100 }, 5000);
+    tween.easing(TWEEN.Easing.Linear.None);
+
+    tween.onUpdate(function () {
+      car.rotation.y = 0 * Math.PI
+    })
+
+    var tweenBack = new TWEEN.Tween(parames).to({ x: 250, y: 0, z: -100 }, 5000);
+    tweenBack.easing(TWEEN.Easing.Linear.None);
+    tween.chain(tweenBack);
+
+    tweenBack.onUpdate(function () {
+      car.rotation.y = 0.5 * Math.PI
+    })
+
+    var tweenBack2 = new TWEEN.Tween(parames).to({ x: -250, y: 0, z: -100 }, 10000);
+    tweenBack2.easing(TWEEN.Easing.Linear.None);
+    tweenBack.chain(tweenBack2);
+
+    tweenBack2.onUpdate(function () {
+      car.rotation.y = 1 * Math.PI
+    })
+
+    var tweenBack3 = new TWEEN.Tween(parames).to({ x: -250, y: 0, z: 100 }, 5000);
+    tweenBack3.easing(TWEEN.Easing.Linear.None);
+    tweenBack2.chain(tweenBack3);
+
+    tweenBack3.onUpdate(function () {
+      car.rotation.y = 1.5 * Math.PI
+    })
+
+    tweenBack3.chain(tween);
+
+    tween.start();
+
+
+    const material = new THREE.LineBasicMaterial({
+      color: 0x00FF00
+    });
+
+    const points = [];
+    points.push(new THREE.Vector3(- 10, 0, 0));
+    points.push(new THREE.Vector3(10, 0, 0));
+
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+
+    line = new THREE.Line(geometry, material);
+    scene.add(line);
+  }
+
+
+  function createPlane(length, width) {
+    const geometry = new THREE.PlaneGeometry(length, width);
+    const material = new THREE.MeshBasicMaterial({ color: 0x4169E1, side: THREE.DoubleSide, opacity: 0.2, transparent: true });
+    const plane = new THREE.Mesh(geometry, material);
+    return plane
+  }
+
+  function createBox(width, height, depth) {
+    const geometry = new THREE.BoxGeometry(width, height, depth);
+    const material = new THREE.MeshBasicMaterial({ color: 0x778899 });
+    const cube = new THREE.Mesh(geometry, material);
+    return cube
+  }
+
+
+</script>
+
+</html>

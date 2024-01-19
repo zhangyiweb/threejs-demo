@@ -1,0 +1,203 @@
+<!--
+ * @Descripttion: 
+ * @Date: 2022-07-19 14:44:28
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+</style>
+
+<body>
+  <div id="container"></div>
+</body>
+<script type="importmap">
+  {
+    "imports": {
+      "three": "./build/three.module.js"
+    }
+  }
+</script>
+<script type="module">
+
+  import * as THREE from 'three';
+
+  import Stats from './jsm/libs/stats.module.js';
+  import { GUI } from './jsm/libs/lil-gui.module.min.js';
+  import { GLTFLoader } from './jsm/loaders/GLTFLoader.js';
+  import { DRACOLoader } from './jsm/loaders/DRACOLoader.js';
+  import { OrbitControls } from './jsm/controls/OrbitControls.js';
+  import { OBJLoader } from './jsm/loaders/OBJLoader.js';
+  import { MTLLoader } from './jsm/loaders/MTLLoader.js';
+  import { CSS2DRenderer, CSS2DObject } from "./jsm/renderers/CSS2DRenderer.js";
+  import { FontLoader } from "./jsm/loaders/FontLoader.js"
+  let camera, scene, renderer, clock, controls, mixer, curve, boxMesh, points
+  let step = 0
+
+
+  /* 场景 */
+  function initScene() {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color("#5EC6FC")
+
+    var axes = new THREE.AxesHelper(20);
+    scene.add(axes);
+  }
+
+  /* 相机 */
+  function initCamera() {
+    camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 1, 5000);
+    camera.position.set(0, 100, 100);
+    camera.lookAt(new THREE.Vector3(0, 0, 0));
+  }
+
+  /* 渲染器 */
+  function initRender() {
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    container.appendChild(renderer.domElement);
+    // renderer.outputEncoding = THREE.sRGBEncoding;
+  }
+
+  /* 灯光 */
+  function initLight() {
+    var hemisphereLight = new THREE.HemisphereLight(0x808080, 0x606060)
+    scene.add(hemisphereLight);
+    var ambientLight = new THREE.AmbientLight(0xffffff);
+    scene.add(ambientLight);
+  }
+
+
+  /* 控制器 */
+  function initControls() {
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.dampingFactor = true
+  }
+
+
+
+  /* 窗口变动触发 */
+  function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  function animate() {
+    // 设置纹理偏移
+    requestAnimationFrame(animate);
+    render();
+  }
+
+  /* 渲染内容 */
+  function initContent() {
+    var geometry = new THREE.BufferGeometry(); //声明一个空几何体对象
+    //类型数组创建顶点位置position数据
+    var vertices = new Float32Array([
+      0, 0, 0,//0
+      10, 0, 0,//1
+      0, 20, 0,//2
+
+      10, 20, 0,//3
+
+      10, 15, 0,//4
+      20, 15, 0,//5
+
+      20, 20, 0,//6
+
+      20, 0, 0,//7
+      30, 0, 0,//8
+      30, 20, 0,//9
+
+      30, 5, 0,//10
+      40, 0, 0,//11
+
+      40, 5, 0,//12
+
+      30, 15, 0,//13
+      40, 15, 0,//14
+      40, 20, 0,//15
+      50, 0, 0,//16
+      50, 20, 0//17
+
+    ]);
+    // 创建属性缓冲区对象
+    var attribue = new THREE.BufferAttribute(vertices, 3); //3个为一组
+    // 设置几何体attributes属性的位置position属性
+    geometry.attributes.position = attribue
+    // var normals = new Float32Array([
+    //   0, 0, 1, //顶点1法向量
+    //   0, 0, 1, //顶点2法向量
+    //   0, 0, 1, //顶点3法向量
+    //   0, 0, 1, //顶点4法向量
+    // ]);
+    // // 设置几何体attributes属性的位置normal属性
+    // geometry.attributes.normal = new THREE.BufferAttribute(normals, 3); //3个为一组,表示一个顶点的xyz坐标
+
+    // Uint16Array类型数组创建顶点索引数据
+    var indexes = new Uint16Array([
+      0, 1, 2,
+      1, 2, 3,
+      3, 4, 5,
+      3, 5, 6,
+      7, 8, 6,
+      8, 6, 9,
+      8, 10, 11,
+      10, 12, 11,
+      13, 14, 9,
+      15, 14, 9,
+      16, 11, 15,
+      17, 16, 15
+    ])
+    // 索引数据赋值给几何体的index属性
+    geometry.index = new THREE.BufferAttribute(indexes, 1); //1个为一组
+    console.log(geometry);
+
+
+    var material = new THREE.MeshBasicMaterial({
+      color: 0xC0C0C0, //三角面颜色
+      side: THREE.DoubleSide //两面可见
+    }); //材质对象
+    var mesh = new THREE.Mesh(geometry, material); //网格模型对象Mesh
+    scene.add(mesh)
+
+  }
+
+  function render() {
+    renderer.render(scene, camera);
+    controls.update()
+  }
+
+  function init() {
+    initScene();
+    initCamera();
+    initRender();
+    initLight();
+    initControls();
+    initContent();
+    window.addEventListener('resize', onWindowResize, false);
+  }
+
+  /* 初始加载 */
+  (function () {
+    init();
+    animate();
+  })();
+
+
+</script>
+
+</html>

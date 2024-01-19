@@ -1,0 +1,296 @@
+<!--
+ * @Descripttion: 
+ * @Date: 2022-07-19 14:44:28
+-->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      box-sizing: border-box;
+    }
+  </style>
+
+  <body>
+    <div id="container"></div>
+  </body>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./build/three.module.js"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from "three";
+
+    import Stats from "./jsm/libs/stats.module.js";
+    import { GUI } from "./jsm/libs/lil-gui.module.min.js";
+    import { GLTFLoader } from "./jsm/loaders/GLTFLoader.js";
+    import { DRACOLoader } from "./jsm/loaders/DRACOLoader.js";
+    import { OrbitControls } from "./jsm/controls/OrbitControls.js";
+    import { OBJLoader } from "./jsm/loaders/OBJLoader.js";
+    import { MTLLoader } from "./jsm/loaders/MTLLoader.js";
+    import TUtils from "./threejs-until.js";
+
+    let camera, scene, renderer, clock, controls, stats;
+    const container = document.getElementById("container");
+
+    let time = {
+      value: 0,
+    };
+
+    const T = new TUtils(scene);
+    clock = new THREE.Clock();
+
+    /* 场景 */
+    function initScene() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color("#7DD5EE");
+
+      stats = new Stats();
+      container.appendChild(stats.dom);
+
+      var axes = new THREE.AxesHelper(100);
+      scene.add(axes);
+    }
+
+    /* 相机 */
+    function initCamera() {
+      camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 1, 5000);
+      camera.position.set(0, 200, 400);
+      camera.lookAt(new THREE.Vector3(0, 0, 0));
+    }
+
+    /* 渲染器 */
+    function initRender() {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      container.appendChild(renderer.domElement);
+      renderer.outputEncoding = THREE.sRGBEncoding;
+    }
+
+    /* 灯光 */
+    function initLight() {
+      var ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+      scene.add(ambientLight);
+
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      directionalLight.position.set(50, 200, 100);
+
+      const directionalLightHelper = new THREE.DirectionalLightHelper(directionalLight, 5, 0xffff00);
+      scene.add(directionalLightHelper);
+    }
+
+    /* 控制器 */
+    function initControls() {
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.dampingFactor = true;
+      // controls.minPolarAngle = 0.5;
+      // controls.maxPolarAngle = 1.2;
+    }
+
+    /* 窗口变动触发 */
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate() {
+      // 设置纹理偏移
+      requestAnimationFrame(animate);
+      render();
+      const dt = clock.getDelta();
+      time.value += dt;
+    }
+
+    /* 渲染内容 */
+    function initContent() {
+      let g = new THREE.Group();
+      const flyData = [
+        {
+          source: {
+            x: 0,
+            y: 0,
+            z: 0,
+          },
+          target: {
+            x: 100,
+            y: 0,
+            z: 0,
+          },
+          range: 120,
+          height: 100,
+          color: 0x800000,
+          speed: 1,
+          size: 30,
+        },
+        {
+          source: {
+            x: 0,
+            y: 0,
+            z: 0,
+          },
+          target: {
+            x: -100,
+            y: 0,
+            z: 0,
+          },
+          height: 300,
+          range: 150,
+          color: "#006400",
+          speed: 1,
+          size: 40,
+        },
+      ];
+
+      flyData.forEach((data) => {
+        const mesh = a(data);
+        mesh.material.uniforms.time = time;
+        mesh.renderOrder = 10;
+        g.add(mesh);
+      });
+
+      scene.add(g);
+    }
+
+    function a(option) {
+      const { source, target, height, size, color, range } = option;
+      const positions = [];
+      const attrPositions = [];
+      const attrCindex = [];
+      const attrCnumber = [];
+
+      const _source = new THREE.Vector3(source.x, source.y, source.z);
+      const _target = new THREE.Vector3(target.x, target.y, target.z);
+      const _center = _target.clone().lerp(_source, 0.5);
+      _center.y += height;
+
+      const number = parseInt(_source.distanceTo(_center) + _target.distanceTo(_center));
+
+      const curve = new THREE.QuadraticBezierCurve3(_source, _center, _target);
+
+      const points = curve.getPoints(number);
+
+      // 粒子位置计算
+
+      points.forEach((elem, i) => {
+        const index = i / (number - 1);
+        positions.push({
+          x: elem.x,
+          y: elem.y,
+          z: elem.z,
+        });
+        attrCindex.push(index);
+        attrCnumber.push(i);
+      });
+
+      positions.forEach((p) => {
+        attrPositions.push(p.x, p.y, p.z);
+      });
+
+      const geometry = new THREE.BufferGeometry();
+
+      geometry.setAttribute("position", new THREE.Float32BufferAttribute(attrPositions, 3));
+      // 传递当前所在位置
+      geometry.setAttribute("index", new THREE.Float32BufferAttribute(attrCindex, 1));
+      geometry.setAttribute("current", new THREE.Float32BufferAttribute(attrCnumber, 1));
+
+      const shader = new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        depthTest: false,
+        blending: THREE.AdditiveBlending,
+        uniforms: {
+          uColor: {
+            value: new THREE.Color(color), // 颜色
+          },
+          uRange: {
+            value: range || 100, // 显示当前范围的个数
+          },
+          uSize: {
+            value: size, // 粒子大小
+          },
+          uTotal: {
+            value: number, // 当前粒子的所有的总数
+          },
+          time: {
+            value: 0, //
+          },
+        },
+        vertexShader: `
+        attribute float index;
+        attribute float current;
+        uniform float time;
+        uniform float uSize;
+        uniform float uRange; // 展示区间
+        uniform float uTotal; // 粒子总数
+        uniform vec3 uColor; 
+        varying vec3 vColor;
+        varying float vOpacity;
+        void main() {
+            // 需要当前显示的索引
+            float size = uSize;
+            float showNumber = uTotal * mod(time, 1.1);
+            if (showNumber > current && showNumber < current + uRange) {
+                float uIndex = ((current + uRange) - showNumber) / uRange;
+                size *= uIndex;
+                vOpacity = 1.0;
+            } else {
+                vOpacity = 0.0;
+            }
+
+            // 顶点着色器计算后的Position
+            vColor = uColor;
+            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+            gl_Position = projectionMatrix * mvPosition; 
+            // 大小
+            gl_PointSize = size * 300.0 / (-mvPosition.z);
+        }`,
+        fragmentShader: `
+        varying vec3 vColor; 
+        varying float vOpacity;
+        void main() {
+            gl_FragColor = vec4(vColor, vOpacity);
+        }`,
+      });
+
+      const point = new THREE.Points(geometry, shader);
+
+      return point;
+    }
+
+    function render() {
+      renderer.render(scene, camera);
+      controls.update();
+      stats.update();
+    }
+
+    function init() {
+      initScene();
+      initCamera();
+      initRender();
+      initLight();
+      initControls();
+      initContent();
+      window.addEventListener("resize", onWindowResize, false);
+    }
+
+    /* 初始加载 */
+    (function () {
+      init();
+      animate();
+    })();
+  </script>
+</html>

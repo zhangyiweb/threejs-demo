@@ -1,0 +1,367 @@
+<!--
+ * @Descripttion: 
+ * @Date: 2022-07-19 14:44:28
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+</style>
+
+<body>
+  <div id="container"></div>
+</body>
+<script type="importmap">
+  {
+    "imports": {
+      "three": "./build/three.module.js"
+    }
+  }
+</script>
+
+<script type="module">
+
+  import * as THREE from 'three';
+
+  import Stats from './jsm/libs/stats.module.js';
+  import { GUI } from './jsm/libs/lil-gui.module.min.js';
+  import { GLTFLoader } from './jsm/loaders/GLTFLoader.js';
+  import { DRACOLoader } from './jsm/loaders/DRACOLoader.js';
+  import { OrbitControls } from './jsm/controls/OrbitControls.js';
+  import { OBJLoader } from './jsm/loaders/OBJLoader.js';
+  import { MTLLoader } from './jsm/loaders/MTLLoader.js';
+  import TUtils from "./threejs-until.js"
+
+  import { FXAAShader } from './jsm/shaders/FXAAShader.js'
+  import { EffectComposer } from './jsm/postprocessing/EffectComposer.js'
+  import { RenderPass } from './jsm/postprocessing/RenderPass.js'
+  import { ShaderPass } from './jsm/postprocessing/ShaderPass.js'
+  import { OutlinePass } from './jsm/postprocessing/OutlinePass.js'
+
+  import { LineGeometry } from './jsm/lines/LineGeometry.js';
+  import { LineMaterial } from './jsm/lines/LineMaterial.js';
+  import { Line2 } from './jsm/lines/Line2.js';
+
+  let camera, scene, renderer, clock, controls, composer, renderPass, outlinePass, effectFXAA;
+  let star, star2, star3, light, light2, light3
+  const container = document.getElementById('container');
+
+  const T = new TUtils(scene)
+
+  /* 场景 */
+  function initScene() {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color("#464545")
+
+    var axes = new THREE.AxesHelper(20);
+    scene.add(axes);
+  }
+
+  /* 相机 */
+  function initCamera() {
+    camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 1, 5000);
+    camera.position.set(0, 200, 400);
+    camera.lookAt(new THREE.Vector3(0, 0, 0));
+  }
+
+  /* 渲染器 */
+  function initRender() {
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    container.appendChild(renderer.domElement);
+    renderer.outputEncoding = THREE.sRGBEncoding;
+  }
+
+  /* 灯光 */
+  function initLight() {
+    // var ambientLight = new THREE.AmbientLight(0xffffff, 4);
+    // scene.add(ambientLight);
+  }
+
+
+  /* 控制器 */
+  function initControls() {
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.dampingFactor = true
+  }
+
+
+
+  /* 窗口变动触发 */
+  function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  let step = 0
+  function animate() {
+    // 设置纹理偏移
+    requestAnimationFrame(animate);
+    render();
+
+    step += 0.01
+    star.position.x = 60 * Math.sin(step)
+    star.position.y = 60 * Math.cos(step) + 60
+    light.position.copy(star.position)
+
+    star2.position.x = 60 * Math.cos(step)
+    star2.position.y = 60 * Math.sin(step) + 60
+    star2.position.z = 40 * Math.sin(step)
+    light2.position.copy(star2.position)
+
+    star3.position.x = 40 * Math.cos(step - 1)
+    star3.position.y = 60 * Math.sin(step - 1) + 60
+    star3.position.z = 40 * Math.cos(step - 1)
+    light3.position.copy(star3.position)
+  }
+
+
+  /* 渲染内容 */
+  function initContent() {
+    T.createObjMeta("", "./objs/aifeier.obj").then((res) => {
+      res.children.forEach((item, index) => {
+        item.material = new THREE.MeshPhongMaterial({
+          // color: 0x050918,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+          transparent: true
+        })
+        if (index === 0) {
+          item.material.opacity = 0
+        } else {
+          outlineObj([item])
+        }
+      })
+
+
+      scene.add(res)
+    })
+
+
+    const material = new THREE.MeshBasicMaterial({
+      color: 0x020308,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      opacity: 0.2
+    })
+    const geometry = new THREE.PlaneBufferGeometry(300, 300)
+    const plane = new THREE.Mesh(geometry, material)
+    plane.rotation.x = 0.5 * Math.PI
+    plane.rotation.z = 0.25 * Math.PI
+    scene.add(plane)
+
+    initLightWave()//添加光波
+
+
+
+    star = new THREE.Mesh(new THREE.SphereGeometry(1, 1, 16),
+      new THREE.MeshBasicMaterial({ color: 0xffff00 }));
+    scene.add(star);
+
+    light = new THREE.PointLight(0xff0000, 1, 100);
+    scene.add(light);
+
+
+    star2 = new THREE.Mesh(new THREE.SphereGeometry(1, 1, 16),
+      new THREE.MeshBasicMaterial({ color: 0x0FFC00 }));
+    scene.add(star2);
+
+    light2 = new THREE.PointLight(0x0FFC00, 1, 100);
+    scene.add(light2);
+
+    star3 = new THREE.Mesh(new THREE.SphereGeometry(1, 1, 16),
+      new THREE.MeshBasicMaterial({ color: 0xFC0018 }));
+    scene.add(star3);
+
+    light3 = new THREE.PointLight(0xFC0018, 1, 100);
+    scene.add(light3);
+
+    createAi()
+
+    createLine()
+  }
+
+
+  function createLine() {
+    var geometry = new THREE.BufferGeometry(); //创建一个缓冲类型几何体
+    // 三维样条曲线
+    var curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(50, 0, 0),
+      new THREE.Vector3(0, 10, -50),
+      new THREE.Vector3(-50, 15, 0),
+      new THREE.Vector3(0, 20, 50),
+      new THREE.Vector3(50, 25, 0),
+      new THREE.Vector3(0, 30, -50),
+      new THREE.Vector3(-50, 35, 0),
+      new THREE.Vector3(0, 40, 50),
+      new THREE.Vector3(50, 45, 0),
+      new THREE.Vector3(0, 50, -50),
+      new THREE.Vector3(-50, 55, 0),
+      new THREE.Vector3(0, 60, 50),
+      new THREE.Vector3(50, 65, 0),
+      new THREE.Vector3(0, 70, -50),
+      new THREE.Vector3(-50, 75, 0),
+      new THREE.Vector3(0, 80, 50),
+      new THREE.Vector3(50, 85, 0),
+      new THREE.Vector3(0, 90, -50),
+      new THREE.Vector3(-50, 95, 0),
+      new THREE.Vector3(0, 100, 50),
+      new THREE.Vector3(0, 200, 0),
+    ]);
+    var points = curve.getSpacedPoints(100); //分段数100，返回101个顶点
+    geometry.setFromPoints(points);
+    var material = new THREE.LineBasicMaterial({
+      color: 0x006666, //轨迹颜色
+    });
+    //线条模型对象
+    var line = new THREE.Line(geometry, material);
+    // scene.add(line);
+
+    var index = 20; //取点索引位置
+    var num = 2; //从曲线上获取点数量
+    var points2 = points.slice(index, index + num); //从曲线上获取一段
+
+    var geometry2 = new LineGeometry();
+    var pointArr = []
+    points2.forEach(function (v3) {
+      pointArr.push(v3.x, v3.y, v3.z)
+    })
+
+    var material2 = new LineMaterial({
+      linewidth: 1, // 设置线宽  
+      color: 0x7FE716
+    });
+    material2.resolution.set(window.innerWidth, window.innerHeight);
+    var line2 = new Line2(geometry2, material2);
+    scene.add(line2);
+
+    var indexMax = points.length - num;
+    function render() {
+      if (index > indexMax) index = 0;
+      index += 1
+      points2 = points.slice(index, index + num); //从曲线上获取一段
+      var pointArr = []
+      points2.forEach(function (v3) {
+        pointArr.push(v3.x, v3.y, v3.z)
+      })
+      geometry2.setPositions(pointArr);
+
+      renderer.render(scene, camera);
+      requestAnimationFrame(render);
+    }
+    render();
+  }
+
+
+
+  function createAi() {
+    const vertices = [];
+
+    for (let i = 0; i < 10000; i++) {
+      const x = THREE.MathUtils.randFloatSpread(2000);
+      const y = THREE.MathUtils.randFloatSpread(2000);
+      const z = THREE.MathUtils.randFloatSpread(2000);
+      vertices.push(x, y, z);
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    const material = new THREE.PointsMaterial({ color: 0xffffff });
+    const points = new THREE.Points(geometry, material);
+    scene.add(points);
+  }
+
+  function outlineObj(selectedObjects) {
+    composer = new EffectComposer(renderer); // 特效组件
+    var renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass); // 特效渲染
+
+    outlinePass = new OutlinePass(new THREE.Vector2(window.innerWidth, window.innerHeight), scene, camera);
+    composer.addPass(outlinePass); // 加入高光特效
+
+    outlinePass.pulsePeriod = 2; //数值越大，律动越慢
+    outlinePass.visibleEdgeColor.set(0xff0000); // 高光颜色
+    outlinePass.hiddenEdgeColor.set(0x000000);// 阴影颜色
+    outlinePass.usePatternTexture = false; // 使用纹理覆盖？
+    outlinePass.edgeStrength = 5; // 高光边缘强度
+    outlinePass.edgeGlow = 1; // 边缘微光强度
+    outlinePass.edgeThickness = 1; // 高光厚度
+
+    outlinePass.selectedObjects = selectedObjects; // 需要高光的obj
+  }
+
+  function initLightWave() {
+    var textureLoader = new THREE.TextureLoader();
+    const geometry = new THREE.CylinderGeometry(40, 40, 10, 20);
+    const material = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      side: THREE.DoubleSide,
+      transparent: true,
+      map: textureLoader.load('./assets/img/gradual_blue_01.png'),
+    })
+    const circle = new THREE.Mesh(geometry, [material]);//用数组只贴边面
+    scene.add(circle)
+
+    let s = 0, p = 0;
+
+    function render1() {
+      if (s > 160) {
+        s = 0
+        p = 160
+      }
+      if (true) {
+        circle.scale.set(1 + s / 70, 1, 1 + s / 70);
+        circle.material[0].opacity = p / 160;
+        s++;
+        p--;
+      }
+      requestAnimationFrame(render1);
+    }
+    render1();
+  }
+
+
+
+  function render() {
+    renderer.render(scene, camera);
+    controls.update()
+    if (composer) {
+      composer.render()
+    }
+  }
+
+  function init() {
+    initScene();
+    initCamera();
+    initRender();
+    initLight();
+    initControls();
+    initContent();
+    window.addEventListener('resize', onWindowResize, false);
+  }
+
+  /* 初始加载 */
+  (function () {
+    init();
+    animate();
+  })();
+
+
+</script>
+
+</html>
